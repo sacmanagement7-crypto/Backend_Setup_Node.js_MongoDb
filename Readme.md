@@ -1,17 +1,23 @@
-# Expense Tracker Backend API
+# Node.js Backend Boilerplate
 
-A scalable and production-ready Node.js + Express.js backend architecture using:
+A scalable, maintainable, and production-ready Node.js + Express.js backend boilerplate following a clean layered architecture.
 
-- Express.js
-- MongoDB + Mongoose
-- JWT Authentication
-- Swagger Documentation
-- Centralized Configuration
-- Global Error Handling
-- Async Handler Pattern
-- Service Layer Architecture
-- Validation Layer
-- Environment Based Configuration
+---
+
+# Features
+
+* Express.js
+* MongoDB + Mongoose
+* JWT Authentication
+* Swagger Documentation
+* Async Handler Pattern
+* Service Layer Architecture
+* Validation Layer
+* Centralized Configuration
+* Global Error Handling
+* Environment-Based Configuration
+* Clean Folder Structure
+* Production Ready Setup
 
 ---
 
@@ -45,7 +51,8 @@ BACK_SETUP/
 ├── .env
 ├── Sample.env
 ├── index.js
-└── package.json
+├── package.json
+└── package-lock.json
 ```
 
 ---
@@ -63,7 +70,9 @@ Controller
    ↓
 Service
    ↓
-Model (MongoDB)
+Model
+   ↓
+Database
    ↓
 Response
 ```
@@ -71,345 +80,179 @@ Response
 Error Flow:
 
 ```text
-Any Error
-   ↓
+Application Error
+      ↓
 asyncHandler
-   ↓
+      ↓
 errorMiddleware
-   ↓
+      ↓
 JSON Response
 ```
 
 ---
 
-# Core Rules
+# Mandatory Development Rules
 
-## 1. Always Use asyncHandler in Controllers
+## Every API Must Follow
 
-Never write:
-
-```js
-export const login = async (req, res) => {
-   const user = await User.findOne();
-   res.json(user);
-};
+```text
+Router
+ → Validation
+ → Controller
+ → Service
+ → Model
 ```
 
-Use:
-
-```js
-import { asyncHandler } from "../Utils/asyncHandler.js";
-
-export const login = asyncHandler(async (req, res) => {
-    const user = await User.findOne();
-
-    res.status(200).json({
-        success: true,
-        data: user,
-    });
-});
-```
-
-Reason:
-
-- Eliminates repetitive try-catch blocks.
-- Automatically forwards errors to errorMiddleware.
-- Keeps controllers clean.
+Never skip any layer.
 
 ---
 
-## 2. Business Logic Must Stay Inside Services
+# Controller Rules
 
-❌ Bad
+Controllers should only:
 
-```js
-export const login = asyncHandler(async (req, res) => {
-    const user = await User.findOne({
-        email: req.body.email,
-    });
+* Receive request data
+* Call service methods
+* Return responses
 
-    if (!user) {
-        throw new Error("User not found");
-    }
+Controllers should NOT:
 
-    res.json(user);
-});
-```
+* Contain business logic
+* Perform database operations
+* Handle complex calculations
+* Access external services directly
 
-✅ Good
-
-Controller:
+Example:
 
 ```js
-export const login = asyncHandler(async (req, res) => {
-    const data = await authService.login(req.body);
+export const create = asyncHandler(async (req, res) => {
+    const data = await exampleService.create(req.body);
 
-    res.status(200).json({
+    return res.status(201).json({
         success: true,
         data,
     });
 });
 ```
 
-Service:
+---
+
+# Service Rules
+
+Services are responsible for:
+
+* Business logic
+* Database operations
+* Data transformation
+* External service integration
+* Throwing application errors
+
+Example:
 
 ```js
-export const login = async (payload) => {
-    const user = await User.findOne({
-        email: payload.email,
-    });
+export const create = async (payload) => {
+    const record = await Model.create(payload);
 
-    if (!user) {
-        const error = new Error("User not found");
-        error.statusCode = 404;
-        throw error;
-    }
-
-    return user;
+    return record;
 };
 ```
 
 ---
 
-## 3. Controllers Should Stay Thin
+# Validation Rules
 
-Controllers should only:
-
-- Receive request
-- Call service
-- Return response
-
-Avoid:
-
-- Database queries
-- Complex calculations
-- Business logic
-
----
-
-## 4. Validate Request Before Controller
-
-Every route should have validation middleware.
+Every request should be validated before reaching the controller.
 
 Example:
 
 ```js
 router.post(
-    "/register",
-    registerValidation,
-    register
+    "/",
+    createValidation,
+    create
 );
 ```
 
-Folder:
+Validation responsibilities:
 
-```bash
-Validations/
-```
-
----
-
-## 5. Use Centralized Configuration
-
-Never access environment variables directly.
-
-❌ Bad
-
-```js
-process.env.JWT_SECRET
-```
-
-✅ Good
-
-```js
-systemConfig.jwt.secret
-```
-
-Example:
-
-```js
-import { systemConfig } from "../Configs/systemConfig.js";
-```
+* Required fields
+* Data types
+* Input sanitization
+* Request schema validation
 
 ---
 
-# Configuration
+# Async Handler Pattern
 
-## systemConfig.js
+## Mandatory
 
-All application settings are maintained in a single place.
+Every controller must be wrapped with asyncHandler.
+
+Never write:
 
 ```js
-import dotenv from "dotenv";
-dotenv.config();
+export const create = async (req, res) => {
+    const data = await service.create();
 
-export const systemConfig = {
-    app: {
-        port: process.env.PORT || 5434,
-        nodeEnv: process.env.NODE_ENV || "development",
-    },
-
-    mongo: {
-        uri: process.env.MONGODB_URI,
-    },
-
-    jwt: {
-        secret: process.env.JWT_SECRET,
-        expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-    },
-
-    cors: {
-        origin: process.env.CORS_ORIGIN || "*",
-    },
-
-    swagger: {
-        enabled: process.env.SWAGGER_ENABLED === "true",
-        route: process.env.SWAGGER_ROUTE || "/api-docs",
-        title: process.env.SWAGGER_TITLE || "Expense Tracker API",
-        version: process.env.SWAGGER_VERSION || "1.0.0",
-        description:
-            process.env.SWAGGER_DESCRIPTION ||
-            "API Documentation for Expense Tracker",
-        serverUrl:
-            process.env.SWAGGER_SERVER_URL ||
-            `http://localhost:${process.env.PORT || 5434}/api`,
-    },
+    res.json(data);
 };
 ```
 
----
-
-# Database Connection
-
-Location:
-
-```bash
-Configs/dbConfig.js
-```
+Always write:
 
 ```js
-import mongoose from "mongoose";
-import { systemConfig } from "./systemConfig.js";
-
-export const connectingDb = async () => {
-    try {
-        await mongoose.connect(systemConfig.mongo.uri);
-
-        console.log("MongoDB Connected...");
-    } catch (error) {
-        console.error(error);
-        process.exit(1);
-    }
-};
-```
-
----
-
-# Async Handler
-
-Location:
-
-```bash
-Utils/asyncHandler.js
-```
-
-```js
-export const asyncHandler = (fn) => {
-    return (req, res, next) => {
-        Promise.resolve(fn(req, res, next))
-            .catch(next);
-    };
-};
-```
-
-Usage:
-
-```js
-export const createExpense = asyncHandler(
+export const create = asyncHandler(
     async (req, res) => {
-        const expense =
-            await expenseService.create(req.body);
+        const data = await service.create();
 
-        res.status(201).json({
+        res.status(200).json({
             success: true,
-            data: expense,
+            data,
         });
     }
 );
 ```
 
+Benefits:
+
+* No repetitive try-catch blocks
+* Cleaner controllers
+* Automatic error forwarding
+* Centralized error handling
+
 ---
 
-# Global Error Middleware
+# Error Handling
 
-Location:
+All errors must be handled through the global error middleware.
 
-```bash
-Middlewares/errorMiddleware.js
+Never send custom error responses directly from controllers.
+
+Instead:
+
+```js
+const error = new Error("Resource not found");
+error.statusCode = 404;
+
+throw error;
 ```
 
-Features:
+The middleware will handle the response.
 
-- Duplicate Key Handling
-- Validation Error Handling
-- Invalid ObjectId Handling
-- Development Stack Trace
-- Centralized Error Response
+---
 
-Response Format:
+# Standard Error Response
 
 ```json
 {
     "success": false,
-    "message": "Email already registered"
+    "message": "Something went wrong"
 }
 ```
 
 ---
 
-# JWT Utilities
-
-Location:
-
-```bash
-Utils/jwtUtils.js
-```
-
-Generate Token:
-
-```js
-const token = generateToken(user._id);
-```
-
-Verify Token:
-
-```js
-const decoded = verifyToken(token);
-```
-
----
-
-# Swagger Documentation
-
-Enable Swagger:
-
-```env
-SWAGGER_ENABLED=true
-```
-
-Access:
-
-```bash
-http://localhost:5434/api-docs
-```
-
-Swagger is protected using Basic Authentication.
-
----
-
-# Standard API Response
-
-## Success Response
+# Standard Success Response
 
 ```json
 {
@@ -421,61 +264,219 @@ Swagger is protected using Basic Authentication.
 
 ---
 
-## Error Response
+# Configuration Rules
 
-```json
-{
-    "success": false,
-    "message": "Something went wrong"
-}
+All application settings should be managed through:
+
+```bash
+Configs/systemConfig.js
+```
+
+Never use:
+
+```js
+process.env.JWT_SECRET
+process.env.PORT
+process.env.MONGODB_URI
+```
+
+Always use:
+
+```js
+systemConfig.jwt.secret
+systemConfig.app.port
+systemConfig.mongo.uri
+```
+
+Benefits:
+
+* Single source of truth
+* Easier maintenance
+* Better scalability
+* Environment consistency
+
+---
+
+# Database Connection
+
+Database connection should be initialized before starting the server.
+
+Responsibilities:
+
+* Establish connection
+* Handle connection failures
+* Exit application if connection fails
+
+---
+
+# JWT Utilities
+
+JWT utility functions should be centralized.
+
+Responsibilities:
+
+* Token generation
+* Token verification
+* Authentication helpers
+
+Location:
+
+```bash
+Utils/jwtUtils.js
 ```
 
 ---
 
-# Route Example
+# Swagger Documentation
+
+Swagger documentation should be maintained for all routes.
+
+Responsibilities:
+
+* Endpoint documentation
+* Request schemas
+* Response schemas
+* Authentication documentation
+
+Access Route:
+
+```bash
+/api-docs
+```
+
+Swagger should be protected using Basic Authentication in non-public environments.
+
+---
+
+# Middleware Rules
+
+Middlewares should be responsible for:
+
+* Authentication
+* Authorization
+* Validation
+* Error handling
+* Request processing
+
+Avoid business logic inside middleware.
+
+---
+
+# Model Rules
+
+Models should contain:
+
+* Schema definitions
+* Indexes
+* Virtuals
+* Model-level hooks
+
+Models should NOT contain:
+
+* Business logic
+* Controller logic
+* Route logic
+
+---
+
+# Route Rules
+
+Routes should only map requests to controllers.
+
+Example:
 
 ```js
 router.post(
-    "/expense",
-    createExpenseValidation,
-    createExpense
+    "/",
+    validationMiddleware,
+    controllerMethod
 );
+```
+
+Routes should NOT:
+
+* Query databases
+* Handle business logic
+* Format responses
+
+---
+
+# Folder Responsibilities
+
+## Configs
+
+Application configurations.
+
+```text
+Database
+JWT
+Swagger
+Application Settings
 ```
 
 ---
 
-# Controller Example
+## Controllers
 
-```js
-export const createExpense = asyncHandler(
-    async (req, res) => {
-        const expense =
-            await expenseService.createExpense(
-                req.body
-            );
+Request and response handling.
 
-        res.status(201).json({
-            success: true,
-            message: "Expense created",
-            data: expense,
-        });
-    }
-);
+```text
+Receive Request
+Call Service
+Return Response
 ```
 
 ---
 
-# Service Example
+## Services
 
-```js
-export const createExpense = async (
-    payload
-) => {
-    const expense =
-        await Expense.create(payload);
+Business logic layer.
 
-    return expense;
-};
+```text
+Database Operations
+Business Rules
+External Services
+Data Processing
+```
+
+---
+
+## Models
+
+Database schemas and models.
+
+---
+
+## Routers
+
+Endpoint definitions.
+
+---
+
+## Middlewares
+
+Reusable request processing logic.
+
+---
+
+## Validations
+
+Request validation schemas and rules.
+
+---
+
+## Utils
+
+Reusable helper functions.
+
+Examples:
+
+```text
+Async Handler
+JWT Helpers
+Response Helpers
+File Helpers
+Date Helpers
 ```
 
 ---
@@ -500,51 +501,96 @@ SWAGGER_ENABLED=true
 SWAGGER_PASSWORD=admin123
 
 SWAGGER_ROUTE=/api-docs
-SWAGGER_TITLE=Expense Tracker API
+SWAGGER_TITLE=Backend API
 SWAGGER_VERSION=1.0.0
-
-SWAGGER_DESCRIPTION=Expense Tracker API Documentation
+SWAGGER_DESCRIPTION=Backend API Documentation
 
 SWAGGER_SERVER_URL=http://localhost:5434/api
 ```
 
 ---
 
-# Development Guidelines
+# Coding Standards
 
-### DO
+### Use ES Modules
 
-✅ Use asyncHandler in every controller
-
-✅ Keep controllers thin
-
-✅ Put business logic in services
-
-✅ Use validation before controller
-
-✅ Use centralized configs
-
-✅ Throw proper errors with statusCode
-
-✅ Use Swagger documentation
-
-✅ Follow folder structure
+```js
+import express from "express";
+```
 
 ---
 
-### DON'T
+### Use Named Exports
 
-❌ Don't use try-catch in every controller
+```js
+export const create = () => {};
+```
 
-❌ Don't access process.env directly
+Avoid:
 
-❌ Don't write business logic in controllers
+```js
+export default create;
+```
 
-❌ Don't query database directly from routes
+---
 
-❌ Don't return inconsistent response formats
+### Use Async/Await
 
-❌ Don't skip validations
+Preferred:
+
+```js
+const data = await service.get();
+```
+
+Avoid:
+
+```js
+service.get().then();
+```
+
+---
+
+### Keep Functions Small
+
+Each function should have a single responsibility.
+
+---
+
+### Maintain Consistent Response Structure
+
+Success:
+
+```json
+{
+    "success": true,
+    "message": "Success",
+    "data": {}
+}
+```
+
+Error:
+
+```json
+{
+    "success": false,
+    "message": "Error message"
+}
+```
+
+---
+
+# Development Checklist
+
+Before creating any new endpoint:
+
+* Create validation
+* Create service method
+* Create controller method
+* Wrap controller with asyncHandler
+* Create route
+* Add Swagger documentation
+* Test endpoint
+* Verify error handling
 
 ---
 
@@ -556,13 +602,13 @@ Install Dependencies
 npm install
 ```
 
-Run Development Server
+Development Mode
 
 ```bash
 npm run dev
 ```
 
-Run Production
+Production Mode
 
 ```bash
 npm start
@@ -570,19 +616,16 @@ npm start
 
 ---
 
-# Backend Coding Standard
+# Summary
 
-For every new API:
+This boilerplate follows a layered architecture that promotes:
 
-```text
-1. Create Validation
-2. Create Service
-3. Create Controller
-4. Wrap Controller with asyncHandler
-5. Create Route
-6. Add Swagger Documentation
-7. Test API
-```
+* Scalability
+* Maintainability
+* Reusability
+* Clean Code Practices
+* Separation of Concerns
+* Production Readiness
 
 Always follow:
 
@@ -594,4 +637,14 @@ Router
  → Model
 ```
 
-This architecture keeps the codebase scalable, maintainable, testable, and production-ready.
+And always use:
+
+```text
+asyncHandler
++
+Global Error Middleware
++
+Centralized Configuration
+```
+
+for every new feature and endpoint.
